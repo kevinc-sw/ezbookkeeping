@@ -1258,6 +1258,8 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 
 	transactionPictureIds := a.transactionPictures.GetTransactionPictureIds(transactionPictureInfos)
 
+	merchant := resolveTransactionMerchant(newTransactionType, transaction.Merchant, transactionModifyReq.Merchant)
+
 	newTransaction := &models.Transaction{
 		TransactionId:     transaction.TransactionId,
 		Uid:               uid,
@@ -1268,6 +1270,7 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		AccountId:         transactionModifyReq.SourceAccountId,
 		Amount:            transactionModifyReq.SourceAmount,
 		HideAmount:        transactionModifyReq.HideAmount,
+		Merchant:          merchant,
 		Comment:           transactionModifyReq.Comment,
 	}
 
@@ -1290,6 +1293,7 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		(newTransaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountId == transaction.RelatedAccountId) &&
 		(newTransaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountAmount == transaction.RelatedAccountAmount) &&
 		newTransaction.HideAmount == transaction.HideAmount &&
+		newTransaction.Merchant == transaction.Merchant &&
 		newTransaction.Comment == transaction.Comment &&
 		newTransaction.GeoLongitude == transaction.GeoLongitude &&
 		newTransaction.GeoLatitude == transaction.GeoLatitude &&
@@ -3004,6 +3008,7 @@ func (a *TransactionsApi) createNewTransactionModel(uid int64, transactionCreate
 		AccountId:         transactionCreateReq.SourceAccountId,
 		Amount:            transactionCreateReq.SourceAmount,
 		HideAmount:        transactionCreateReq.HideAmount,
+		Merchant:          resolveTransactionMerchant(transactionDbType, "", &transactionCreateReq.Merchant),
 		Comment:           transactionCreateReq.Comment,
 		CreatedIp:         clientIp,
 	}
@@ -3019,4 +3024,16 @@ func (a *TransactionsApi) createNewTransactionModel(uid int64, transactionCreate
 	}
 
 	return transaction
+}
+
+func resolveTransactionMerchant(transactionType models.TransactionDbType, currentMerchant string, requestedMerchant *string) string {
+	if transactionType != models.TRANSACTION_DB_TYPE_EXPENSE {
+		return ""
+	}
+
+	if requestedMerchant == nil {
+		return currentMerchant
+	}
+
+	return *requestedMerchant
 }

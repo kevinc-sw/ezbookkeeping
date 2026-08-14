@@ -222,6 +222,18 @@ func TestTransactionInfoResponseSliceLess(t *testing.T) {
 	assert.Equal(t, int64(4), transactionRespSlice[4].Id)
 }
 
+func TestTransactionToTransactionInfoResponsePreservesMerchant(t *testing.T) {
+	transaction := &Transaction{
+		TransactionId: 1,
+		Type:          TRANSACTION_DB_TYPE_EXPENSE,
+		Merchant:      "User-owned merchant",
+	}
+
+	response := transaction.ToTransactionInfoResponse(nil, true)
+
+	assert.Equal(t, "User-owned merchant", response.Merchant)
+}
+
 func TestTransactionStatisticTrendsResponseItemSliceLess(t *testing.T) {
 	var transactionTrendsSlice TransactionStatisticTrendsResponseItemSlice
 	transactionTrendsSlice = append(transactionTrendsSlice, &TransactionStatisticTrendsResponseItem{

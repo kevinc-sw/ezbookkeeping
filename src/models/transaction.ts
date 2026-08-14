@@ -26,6 +26,7 @@ export class Transaction implements TransactionInfoResponse {
     public sourceAmount: number;
     public destinationAmount: number;
     public hideAmount: boolean;
+    public merchant: string;
     public tagIds: string[];
     public comment: string;
     public editable: boolean;
@@ -42,7 +43,7 @@ export class Transaction implements TransactionInfoResponse {
     private _gregorianCalendarDayOfMonth?: number = undefined; // only for displaying transaction in transaction list
     private _displayDayOfWeek?: WeekDay = undefined; // only for displaying transaction in transaction list
 
-    protected constructor(id: string, timeSequenceId: string, type: number, categoryId: string, time: number, timeZone: string | undefined, utcOffset: number, sourceAccountId: string, destinationAccountId: string, sourceAmount: number, destinationAmount: number, hideAmount: boolean, tagIds: string[], comment: string, editable: boolean) {
+    protected constructor(id: string, timeSequenceId: string, type: number, categoryId: string, time: number, timeZone: string | undefined, utcOffset: number, sourceAccountId: string, destinationAccountId: string, sourceAmount: number, destinationAmount: number, hideAmount: boolean, merchant: string, tagIds: string[], comment: string, editable: boolean) {
         this.id = id;
         this.timeSequenceId = timeSequenceId;
         this.type = type;
@@ -54,6 +55,7 @@ export class Transaction implements TransactionInfoResponse {
         this.sourceAmount = sourceAmount;
         this.destinationAmount = destinationAmount;
         this.hideAmount = hideAmount;
+        this.merchant = merchant;
         this.tagIds = tagIds;
         this.comment = comment;
         this.editable = editable;
@@ -240,6 +242,7 @@ export class Transaction implements TransactionInfoResponse {
             sourceAmount: this.sourceAmount,
             destinationAmount: this.type === TransactionType.Transfer ? this.destinationAmount : 0,
             hideAmount: this.hideAmount,
+            merchant: this.type === TransactionType.Expense ? this.merchant : '',
             tagIds: this.tagIds,
             pictureIds: this.getPictureIds(),
             comment: this.comment,
@@ -266,6 +269,7 @@ export class Transaction implements TransactionInfoResponse {
             sourceAmount: this.sourceAmount,
             destinationAmount: this.type === TransactionType.Transfer ? this.destinationAmount : 0,
             hideAmount: this.hideAmount,
+            merchant: this.type === TransactionType.Expense ? this.merchant : '',
             tagIds: this.tagIds,
             pictureIds: this.getPictureIds(),
             comment: this.comment,
@@ -288,6 +292,7 @@ export class Transaction implements TransactionInfoResponse {
             destinationAccountId: this.type === TransactionType.Transfer ? this.destinationAccountId : '0',
             destinationAmount: this.type === TransactionType.Transfer ? this.destinationAmount : 0,
             hideAmount: this.hideAmount,
+            merchant: this.type === TransactionType.Expense ? this.merchant : '',
             tagIds: this.tagIds,
             pictures: this.pictures,
             comment: this.comment,
@@ -308,6 +313,7 @@ export class Transaction implements TransactionInfoResponse {
             0, // sourceAmount
             0, // destinationAmount
             false, // hideAmount
+            '', // merchant
             [], // tagIds
             '', // comment
             true // editable
@@ -328,6 +334,7 @@ export class Transaction implements TransactionInfoResponse {
             transactionResponse.sourceAmount,
             transactionResponse.destinationAmount,
             transactionResponse.hideAmount,
+            transactionResponse.merchant ?? '',
             transactionResponse.tagIds,
             transactionResponse.comment,
             transactionResponse.editable
@@ -400,6 +407,7 @@ export class Transaction implements TransactionInfoResponse {
             transactionDraft.sourceAmount ?? 0, // sourceAmount
             transactionDraft.destinationAmount ?? 0, // destinationAmount
             transactionDraft.hideAmount ?? false, // hideAmount
+            transactionDraft.merchant ?? '', // merchant
             transactionDraft.tagIds ?? [], // tagIds
             transactionDraft.comment ?? '', // comment
             true // editable
@@ -519,6 +527,7 @@ export interface TransactionDraft {
     readonly destinationAccountId?: string;
     readonly destinationAmount?: number;
     readonly hideAmount?: boolean;
+    readonly merchant?: string;
     readonly tagIds?: string[];
     readonly pictures?: TransactionPictureInfoBasicResponse[];
     readonly comment?: string;
@@ -539,6 +548,7 @@ export interface TransactionCreateRequest {
     readonly sourceAmount: number;
     readonly destinationAmount: number;
     readonly hideAmount: boolean;
+    readonly merchant?: string;
     readonly tagIds: string[];
     readonly pictureIds: string[];
     readonly comment: string;
@@ -557,6 +567,7 @@ export interface TransactionModifyRequest {
     readonly sourceAmount: number;
     readonly destinationAmount: number;
     readonly hideAmount: boolean;
+    readonly merchant?: string;
     readonly tagIds: string[];
     readonly pictureIds: string[];
     readonly comment: string;
@@ -667,6 +678,7 @@ export interface TransactionInfoResponse {
     readonly sourceAmount: number;
     readonly destinationAmount: number;
     readonly hideAmount: boolean;
+    readonly merchant?: string;
     readonly tagIds: string[];
     readonly tags?: TransactionTagInfoResponse[];
     readonly pictures?: TransactionPictureInfoBasicResponse[];

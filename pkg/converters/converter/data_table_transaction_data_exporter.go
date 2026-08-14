@@ -69,6 +69,7 @@ func (c *DataTableTransactionDataExporter) BuildExportedContent(ctx core.Context
 
 		dataRowMap[datatable.TRANSACTION_DATA_TABLE_GEOGRAPHIC_LOCATION] = c.getExportedGeographicLocation(transaction)
 		dataRowMap[datatable.TRANSACTION_DATA_TABLE_TAGS] = c.getExportedTags(dataTableBuilder, transaction.TransactionId, allTagIndexes, tagMap)
+		dataRowMap[datatable.TRANSACTION_DATA_TABLE_MERCHANT] = dataTableBuilder.ReplaceDelimiters(transaction.Merchant)
 		dataRowMap[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION] = dataTableBuilder.ReplaceDelimiters(transaction.Comment)
 
 		dataTableBuilder.AppendTransaction(dataRowMap)
