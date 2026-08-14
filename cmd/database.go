@@ -141,6 +141,12 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] transaction picture table maintained successfully")
 
+	err = updateReconciliationDatabaseTablesStructure(c)
+
+	if err != nil {
+		return err
+	}
+
 	err = datastore.Container.UserDataStore.SyncStructs(new(models.UserCustomExchangeRate))
 
 	if err != nil {
@@ -172,6 +178,63 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 	}
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] insights explorer table maintained successfully")
+
+	return nil
+}
+
+func updateReconciliationDatabaseTablesStructure(c core.Context) error {
+	database := datastore.Container.UserDataStore.Choose(0)
+
+	if !database.IsPostgres() {
+		return nil
+	}
+
+	err := datastore.Container.UserDataStore.SyncStructs(
+		new(models.FinancialObservation),
+		new(models.ObservationExternalRef),
+		new(models.TransactionObservationLink),
+		new(models.ReconciliationAttempt),
+		new(models.ReconciliationReview),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if err = ensureReconciliationDatabaseConstraints(c, database); err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateReconciliationDatabaseTablesStructure] reconciliation tables maintained successfully")
+	return nil
+}
+
+func ensureReconciliationDatabaseConstraints(c core.Context, database *datastore.Database) error {
+	sess := database.NewSession(c)
+	defer sess.Close()
+
+	statements := []string{
+		"CREATE UNIQUE INDEX IF NOT EXISTS UQE_transaction_observation_link_active ON transaction_observation_link (observation_id) WHERE active = TRUE",
+		"CREATE INDEX IF NOT EXISTS IDX_transaction_observation_link_transaction_id ON transaction_observation_link (transaction_id)",
+		"CREATE INDEX IF NOT EXISTS IDX_financial_observation_receipt_picture_id ON financial_observation (receipt_picture_id) WHERE receipt_picture_id IS NOT NULL",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_financial_observation_receipt_picture') THEN ALTER TABLE financial_observation ADD CONSTRAINT fk_financial_observation_receipt_picture FOREIGN KEY (uid, receipt_picture_id) REFERENCES transaction_picture_info(uid, picture_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_financial_observation_supersedes') THEN ALTER TABLE financial_observation ADD CONSTRAINT fk_financial_observation_supersedes FOREIGN KEY (uid, supersedes_observation_id) REFERENCES financial_observation(uid, observation_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_observation_external_ref_observation') THEN ALTER TABLE observation_external_ref ADD CONSTRAINT fk_observation_external_ref_observation FOREIGN KEY (uid, observation_id) REFERENCES financial_observation(uid, observation_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transaction_observation_link_observation') THEN ALTER TABLE transaction_observation_link ADD CONSTRAINT fk_transaction_observation_link_observation FOREIGN KEY (uid, observation_id) REFERENCES financial_observation(uid, observation_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transaction_observation_link_transaction') THEN ALTER TABLE transaction_observation_link ADD CONSTRAINT fk_transaction_observation_link_transaction FOREIGN KEY (uid, transaction_id) REFERENCES transaction(uid, transaction_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transaction_observation_link_attempt') THEN ALTER TABLE transaction_observation_link ADD CONSTRAINT fk_transaction_observation_link_attempt FOREIGN KEY (uid, attempt_id) REFERENCES reconciliation_attempt(uid, attempt_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reconciliation_attempt_observation') THEN ALTER TABLE reconciliation_attempt ADD CONSTRAINT fk_reconciliation_attempt_observation FOREIGN KEY (uid, observation_id) REFERENCES financial_observation(uid, observation_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reconciliation_attempt_target') THEN ALTER TABLE reconciliation_attempt ADD CONSTRAINT fk_reconciliation_attempt_target FOREIGN KEY (uid, target_transaction_id) REFERENCES transaction(uid, transaction_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reconciliation_review_observation') THEN ALTER TABLE reconciliation_review ADD CONSTRAINT fk_reconciliation_review_observation FOREIGN KEY (uid, observation_id) REFERENCES financial_observation(uid, observation_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reconciliation_review_attempt') THEN ALTER TABLE reconciliation_review ADD CONSTRAINT fk_reconciliation_review_attempt FOREIGN KEY (uid, attempt_id) REFERENCES reconciliation_attempt(uid, attempt_id); END IF; END $$",
+		"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reconciliation_review_recommended') THEN ALTER TABLE reconciliation_review ADD CONSTRAINT fk_reconciliation_review_recommended FOREIGN KEY (uid, recommended_transaction_id) REFERENCES transaction(uid, transaction_id); END IF; END $$",
+	}
+
+	for _, statement := range statements {
+		if _, err := sess.Exec(statement); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
