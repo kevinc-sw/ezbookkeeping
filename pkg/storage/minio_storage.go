@@ -72,6 +72,14 @@ func (s *MinIOObjectStorage) Exists(ctx core.Context, path string) (bool, error)
 		return true, nil
 	}
 
+	if err != nil {
+		errorResponse := minio.ToErrorResponse(err)
+
+		if errorResponse.Code == "NoSuchKey" || errorResponse.Code == "NoSuchObject" || errorResponse.Code == "NotFound" {
+			return false, nil
+		}
+	}
+
 	return false, err
 }
 

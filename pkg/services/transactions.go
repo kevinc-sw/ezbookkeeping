@@ -622,15 +622,10 @@ func (s *TransactionService) CreateTransaction(c core.Context, transaction *mode
 		}
 	}
 
-	pictureUpdateModel := &models.TransactionPictureInfo{
-		TransactionId:   transaction.TransactionId,
-		UpdatedUnixTime: now,
-	}
-
 	userDataDb := s.UserDataDB(transaction.Uid)
 
 	return userDataDb.DoTransaction(c, func(sess *xorm.Session) error {
-		return s.doCreateTransaction(c, userDataDb, sess, transaction, transactionTagIndexes, tagIds, pictureIds, pictureUpdateModel)
+		return s.doCreateTransaction(c, userDataDb, sess, transaction, transactionTagIndexes, tagIds, pictureIds, now)
 	})
 }
 
@@ -742,7 +737,7 @@ func (s *TransactionService) BatchCreateTransactions(c core.Context, uid int64, 
 			transaction := transactions[i]
 			transactionTagIndexes := allTransactionTagIndexes[transaction.TransactionId]
 			transactionTagIds := allTransactionTagIds[transaction.TransactionId]
-			err := s.doCreateTransaction(c, userDataDb, sess, transaction, transactionTagIndexes, transactionTagIds, nil, nil)
+			err := s.doCreateTransaction(c, userDataDb, sess, transaction, transactionTagIndexes, transactionTagIds, nil, 0)
 
 			currentProcess = float64(i) / float64(len(transactions)) * 100
 
@@ -1345,14 +1340,7 @@ func (s *TransactionService) ModifyTransaction(c core.Context, transaction *mode
 		}
 
 		if len(addPictureIds) > 0 {
-			pictureUpdateModel := &models.TransactionPictureInfo{
-				TransactionId:   transaction.TransactionId,
-				UpdatedUnixTime: now,
-			}
-
-			_, err = sess.Cols("transaction_id", "updated_unix_time").Where("uid=? AND deleted=? AND transaction_id=?", transaction.Uid, false, models.TransactionPictureNewPictureTransactionId).In("picture_id", addPictureIds).Update(pictureUpdateModel)
-
-			if err != nil {
+			if err = s.attachNewPictures(sess, transaction, addPictureIds, now); err != nil {
 				log.Errorf(c, "[transactions.ModifyTransaction] failed to update new transaction picture info, because %s", err.Error())
 				return err
 			}
@@ -2715,7 +2703,7 @@ func (s *TransactionService) GetTransactionIds(transactions []*models.Transactio
 	return transactionIds
 }
 
-func (s *TransactionService) doCreateTransaction(c core.Context, database *datastore.Database, sess *xorm.Session, transaction *models.Transaction, transactionTagIndexes []*models.TransactionTagIndex, tagIds []int64, pictureIds []int64, pictureUpdateModel *models.TransactionPictureInfo) error {
+func (s *TransactionService) doCreateTransaction(c core.Context, database *datastore.Database, sess *xorm.Session, transaction *models.Transaction, transactionTagIndexes []*models.TransactionTagIndex, tagIds []int64, pictureIds []int64, pictureUpdatedUnixTime int64) error {
 	// Get and verify source and destination account
 	sourceAccount, destinationAccount, err := s.getAccountModels(sess, transaction)
 
@@ -2894,9 +2882,7 @@ func (s *TransactionService) doCreateTransaction(c core.Context, database *datas
 
 	// Update transaction picture
 	if len(pictureIds) > 0 {
-		_, err = sess.Cols("transaction_id", "updated_unix_time").Where("uid=? AND deleted=? AND transaction_id=?", transaction.Uid, false, models.TransactionPictureNewPictureTransactionId).In("picture_id", pictureIds).Update(pictureUpdateModel)
-
-		if err != nil {
+		if err = s.attachNewPictures(sess, transaction, pictureIds, pictureUpdatedUnixTime); err != nil {
 			log.Errorf(c, "[transactions.doCreateTransaction] failed to update transaction picture info, because %s", err.Error())
 			return err
 		}
@@ -3488,4 +3474,17 @@ func (s *TransactionService) isPicturesValid(sess *xorm.Session, transaction *mo
 	}
 
 	return nil
+}
+
+func (s *TransactionService) attachNewPictures(sess *xorm.Session, transaction *models.Transaction, pictureIds []int64, updatedUnixTime int64) error {
+	updatedRows, err := sess.Cols("transaction_id", "updated_unix_time").
+		Where("uid=? AND deleted=? AND transaction_id=?", transaction.Uid, false, models.TransactionPictureNewPictureTransactionId).
+		In("picture_id", pictureIds).
+		Update(&models.TransactionPictureInfo{TransactionId: transaction.TransactionId, UpdatedUnixTime: updatedUnixTime})
+
+	if err == nil && updatedRows != int64(len(pictureIds)) {
+		return errs.ErrTransactionPictureNotFound
+	}
+
+	return err
 }

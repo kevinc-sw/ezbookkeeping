@@ -245,7 +245,22 @@ func (s *TransactionPictureService) RemoveUnusedTransactionPicture(c core.Contex
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDB().DoTransaction(c, func(sess *xorm.Session) error {
+	database := s.UserDataDB(uid)
+
+	return database.DoTransaction(c, func(sess *xorm.Session) error {
+		protected := false
+		var err error
+
+		if database.IsPostgres() {
+			protected, err = s.isPictureProtectedByReconciliation(sess, uid, pictureId)
+		}
+
+		if err != nil {
+			return err
+		} else if protected {
+			return errs.ErrTransactionPictureInUse
+		}
+
 		deletedRows, err := sess.ID(pictureId).Cols("deleted", "deleted_unix_time").Where("uid=? AND deleted=? AND transaction_id=?", uid, false, models.TransactionPictureNewPictureTransactionId).Update(updateModel)
 
 		if err != nil {
@@ -256,6 +271,96 @@ func (s *TransactionPictureService) RemoveUnusedTransactionPicture(c core.Contex
 
 		return err
 	})
+}
+
+// ValidateReconciliationReceiptPicture returns receipt metadata after verifying its UID and durable object.
+func (s *TransactionPictureService) ValidateReconciliationReceiptPicture(c core.Context, uid int64, observationId int64) (*models.TransactionPictureInfo, error) {
+	if uid <= 0 {
+		return nil, errs.ErrUserIdInvalid
+	}
+
+	if observationId <= 0 {
+		return nil, errs.ErrTransactionPictureIdInvalid
+	}
+
+	observation := &models.FinancialObservation{}
+	has, err := s.UserDataDB(uid).NewSession(c).ID(observationId).Where("uid=?", uid).Get(observation)
+
+	if err != nil {
+		return nil, err
+	} else if !has || observation.ReceiptPictureId == nil {
+		return nil, errs.ErrTransactionPictureNotFound
+	}
+
+	pictureInfo, err := s.GetPictureInfoByPictureId(c, uid, *observation.ReceiptPictureId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	exists, err := s.ExistsTransactionPicture(c, uid, pictureInfo.PictureId, pictureInfo.PictureExtension)
+
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, errs.ErrTransactionPictureNoExists
+	}
+
+	return pictureInfo, nil
+}
+
+// AttachReconciliationReceiptPicture associates an existing receipt object with an expense without copying it.
+func (s *TransactionPictureService) AttachReconciliationReceiptPicture(c core.Context, uid int64, observationId int64, transactionId int64) error {
+	if transactionId <= 0 {
+		return errs.ErrTransactionIdInvalid
+	}
+
+	pictureInfo, err := s.ValidateReconciliationReceiptPicture(c, uid, observationId)
+
+	if err != nil {
+		return err
+	}
+
+	if pictureInfo.TransactionId == transactionId {
+		return nil
+	} else if pictureInfo.TransactionId != models.TransactionPictureNewPictureTransactionId {
+		return errs.ErrTransactionPictureIdInvalid
+	}
+
+	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+		transaction := &models.Transaction{}
+		has, err := sess.ID(transactionId).Where("uid=? AND deleted=? AND type=?", uid, false, models.TRANSACTION_DB_TYPE_EXPENSE).Get(transaction)
+
+		if err != nil {
+			return err
+		} else if !has {
+			return errs.ErrTransactionNotFound
+		}
+
+		if err = Transactions.isPicturesValid(sess, transaction, []int64{pictureInfo.PictureId}); err != nil {
+			return err
+		}
+
+		return Transactions.attachNewPictures(sess, transaction, []int64{pictureInfo.PictureId}, time.Now().Unix())
+	})
+}
+
+func (s *TransactionPictureService) isPictureProtectedByReconciliation(sess *xorm.Session, uid int64, pictureId int64) (bool, error) {
+	return sess.SQL(`
+		SELECT 1
+		FROM financial_observation observation
+		LEFT JOIN reconciliation_review review
+			ON review.uid = observation.uid AND review.observation_id = observation.observation_id AND review.status = ?
+		WHERE observation.uid = ? AND observation.receipt_picture_id = ?
+			AND (observation.status IN (?, ?, ?) OR review.review_id IS NOT NULL)
+		LIMIT 1`,
+		models.RECONCILIATION_REVIEW_STATUS_OPEN,
+		uid,
+		pictureId,
+		models.FINANCIAL_OBSERVATION_STATUS_PENDING,
+		models.FINANCIAL_OBSERVATION_STATUS_RETRYING,
+		models.FINANCIAL_OBSERVATION_STATUS_AWAITING_REVIEW,
+	).Exist()
 }
 
 // GetPictureInfoMapByList returns a transaction picture info list map by a list
