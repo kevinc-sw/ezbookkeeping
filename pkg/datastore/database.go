@@ -7,6 +7,11 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
 )
 
+// IsPostgres returns whether this database uses PostgreSQL.
+func (db *Database) IsPostgres() bool {
+	return db.databaseType == settings.PostgresDbType
+}
+
 // Database represents a database instance
 type Database struct {
 	databaseType string
