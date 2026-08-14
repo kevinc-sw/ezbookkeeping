@@ -141,6 +141,28 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] transaction picture table maintained successfully")
 
+	err = datastore.Container.UserDataStore.SyncStructs(
+		new(models.FinancialObservation),
+		new(models.ObservationExternalRef),
+		new(models.TransactionObservationLink),
+		new(models.ReconciliationAttempt),
+		new(models.ReconciliationReview),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] reconciliation tables maintained successfully")
+
+	err = datastore.Container.UserDataStore.SyncReconciliationConstraints()
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] reconciliation constraints maintained successfully")
+
 	err = datastore.Container.UserDataStore.SyncStructs(new(models.UserCustomExchangeRate))
 
 	if err != nil {

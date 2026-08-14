@@ -1164,6 +1164,12 @@ func (s *TransactionService) ModifyTransaction(c core.Context, transaction *mode
 			updateCols = append(updateCols, "hide_amount")
 		}
 
+		if transaction.Merchant != oldTransaction.Merchant {
+			// A merchant supplied through the ordinary edit path is user-owned.
+			transaction.MerchantUserOwned = true
+			updateCols = append(updateCols, "merchant", "merchant_user_owned")
+		}
+
 		if transaction.Comment != oldTransaction.Comment {
 			updateCols = append(updateCols, "comment")
 		}

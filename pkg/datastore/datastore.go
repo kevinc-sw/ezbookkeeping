@@ -52,6 +52,19 @@ func (s *DataStore) SyncStructs(beans ...any) error {
 	return err
 }
 
+// SyncReconciliationConstraints installs PostgreSQL constraints that cannot be
+// represented by XORM struct tags, notably the active-link partial index and
+// composite user-scoped foreign keys. Other supported database engines retain
+// their existing Sync2 behavior.
+func (s *DataStore) SyncReconciliationConstraints() error {
+	for i := 0; i < len(s.databases); i++ {
+		if err := s.databases[i].SyncReconciliationConstraints(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NewDataStore returns a new data storage by a series of database
 func NewDataStore(databases ...*Database) (*DataStore, error) {
 	if len(databases) < 1 {

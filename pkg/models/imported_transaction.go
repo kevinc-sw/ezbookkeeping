@@ -52,6 +52,7 @@ type ImportTransactionResponse struct {
 	TagIds                             []string                        `json:"tagIds"`
 	OriginalTagNames                   []string                        `json:"originalTagNames"`
 	Comment                            string                          `json:"comment"`
+	Merchant                           string                          `json:"merchant"`
 	GeoLocation                        *TransactionGeoLocationResponse `json:"geoLocation,omitempty"`
 }
 
@@ -95,6 +96,7 @@ func (t ImportTransaction) ToImportTransactionResponse() *ImportTransactionRespo
 		TagIds:                             t.TagIds,
 		OriginalTagNames:                   t.OriginalTagNames,
 		Comment:                            t.Comment,
+		Merchant:                           t.Merchant,
 		GeoLocation:                        geoLocation,
 	}
 }

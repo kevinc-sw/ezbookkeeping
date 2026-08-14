@@ -138,6 +138,8 @@ type Transaction struct {
 	RelatedAccountId     int64             `xorm:"NOT NULL"`
 	RelatedAccountAmount int64             `xorm:"NOT NULL"`
 	HideAmount           bool              `xorm:"NOT NULL"`
+	Merchant             string            `xorm:"VARCHAR(255) NOT NULL"`
+	MerchantUserOwned    bool              `xorm:"NOT NULL"`
 	Comment              string            `xorm:"VARCHAR(255) NOT NULL"`
 	GeoLongitude         float64           `xorm:"INDEX(IDX_transaction_uid_deleted_time_longitude_latitude)"`
 	GeoLatitude          float64           `xorm:"INDEX(IDX_transaction_uid_deleted_time_longitude_latitude)"`
@@ -172,6 +174,7 @@ type TransactionCreateRequest struct {
 	SourceAmount         int64                          `json:"sourceAmount" binding:"validTransactionAmount"`
 	DestinationAmount    int64                          `json:"destinationAmount" binding:"validTransactionAmount"`
 	HideAmount           bool                           `json:"hideAmount"`
+	Merchant             string                         `json:"merchant" binding:"max=255"`
 	TagIds               []string                       `json:"tagIds"`
 	PictureIds           []string                       `json:"pictureIds"`
 	Comment              string                         `json:"comment" binding:"max=255"`
@@ -191,6 +194,7 @@ type TransactionModifyRequest struct {
 	SourceAmount         int64                          `json:"sourceAmount" binding:"validTransactionAmount"`
 	DestinationAmount    int64                          `json:"destinationAmount" binding:"validTransactionAmount"`
 	HideAmount           bool                           `json:"hideAmount"`
+	Merchant             string                         `json:"merchant" binding:"max=255"`
 	TagIds               []string                       `json:"tagIds"`
 	PictureIds           []string                       `json:"pictureIds"`
 	Comment              string                         `json:"comment" binding:"max=255"`
@@ -415,6 +419,7 @@ type TransactionInfoResponse struct {
 	SourceAmount         int64                                    `json:"sourceAmount"`
 	DestinationAmount    *int64                                   `json:"destinationAmount,omitempty"`
 	HideAmount           bool                                     `json:"hideAmount"`
+	Merchant             string                                   `json:"merchant"`
 	TagIds               []string                                 `json:"tagIds"`
 	Tags                 []*TransactionTagInfoResponse            `json:"tags,omitempty"`
 	Pictures             TransactionPictureInfoBasicResponseSlice `json:"pictures,omitempty"`
@@ -643,6 +648,7 @@ func (t *Transaction) ToTransactionInfoResponse(tagIds []int64, editable bool) *
 		SourceAmount:         sourceAmount,
 		DestinationAmount:    destinationAmount,
 		HideAmount:           t.HideAmount,
+		Merchant:             t.Merchant,
 		TagIds:               utils.Int64ArrayToStringArray(tagIds),
 		Comment:              t.Comment,
 		GeoLocation:          geoLocation,

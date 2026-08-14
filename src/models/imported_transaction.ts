@@ -20,6 +20,7 @@ export class ImportTransaction implements ImportTransactionResponse {
     public tagIds: string[];
     public originalTagNames: string[];
     public comment: string;
+    public merchant: string;
     public geoLocation?: TransactionGeoLocationResponse;
 
     public actualCategoryName: string;
@@ -46,6 +47,7 @@ export class ImportTransaction implements ImportTransactionResponse {
         this.tagIds = response.tagIds || [];
         this.originalTagNames = response.originalTagNames || [];
         this.comment = response.comment;
+        this.merchant = response.merchant || '';
         this.geoLocation = response.geoLocation;
 
         this.actualCategoryName = response.originalCategoryName;
@@ -67,6 +69,7 @@ export class ImportTransaction implements ImportTransactionResponse {
             sourceAmount: this.sourceAmount,
             destinationAmount: this.type === TransactionType.Transfer ? this.destinationAmount : 0,
             hideAmount: false,
+            merchant: this.merchant,
             tagIds: this.tagIds,
             pictureIds: [],
             comment: this.comment,
@@ -143,6 +146,7 @@ export interface ImportTransactionResponse {
     readonly tagIds: string[];
     readonly originalTagNames: string[];
     readonly comment: string;
+    readonly merchant?: string;
     readonly geoLocation?: TransactionGeoLocationResponse;
 }
 

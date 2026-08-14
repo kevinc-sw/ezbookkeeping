@@ -350,10 +350,11 @@ func (c *DataTableTransactionDataImporter) ParseImportedData(ctx core.Context, u
 			}
 		}
 
-		if dataTable.HasColumn(datatable.TRANSACTION_DATA_TABLE_MERCHANT) && additionalOptions.IsMerchantAsTag() {
-			merchant := dataRow.GetData(datatable.TRANSACTION_DATA_TABLE_MERCHANT)
+		merchant := ""
+		if dataTable.HasColumn(datatable.TRANSACTION_DATA_TABLE_MERCHANT) {
+			merchant = dataRow.GetData(datatable.TRANSACTION_DATA_TABLE_MERCHANT)
 
-			if merchant != "" {
+			if merchant != "" && additionalOptions.IsMerchantAsTag() {
 				allNewTags, tagIds, tagNames = c.addTag(user, merchant, tagNamesMap, tagMap, allNewTags, tagIds, tagNames)
 			}
 		}
@@ -378,6 +379,8 @@ func (c *DataTableTransactionDataImporter) ParseImportedData(ctx core.Context, u
 				AccountId:            account.AccountId,
 				Amount:               amount,
 				HideAmount:           false,
+				Merchant:             merchant,
+				MerchantUserOwned:    merchant != "",
 				RelatedAccountId:     relatedAccountId,
 				RelatedAccountAmount: relatedAccountAmount,
 				Comment:              description,

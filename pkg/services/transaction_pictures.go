@@ -197,6 +197,56 @@ func (s *TransactionPictureService) GetPictureByPictureId(c core.Context, uid in
 	return pictureData, nil
 }
 
+// GetReceiptPictureInfo validates immutable receipt provenance without reading
+// file contents into reconciliation. Provider errors are returned unchanged so
+// the caller can classify temporary storage failures as retryable.
+func (s *TransactionPictureService) GetReceiptPictureInfo(c core.Context, uid int64, pictureId int64) (*models.TransactionPictureInfo, error) {
+	pictureInfo, err := s.GetPictureInfoByPictureId(c, uid, pictureId)
+	if err != nil {
+		return nil, err
+	}
+
+	exists, err := s.ExistsTransactionPicture(c, pictureInfo.Uid, pictureInfo.PictureId, pictureInfo.PictureExtension)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errs.ErrTransactionPictureNoExists
+	}
+
+	return pictureInfo, nil
+}
+
+// AttachReceiptPicture associates the already-stored receipt object with a
+// canonical transaction. It updates metadata only and never copies the object.
+func (s *TransactionPictureService) AttachReceiptPicture(c core.Context, uid int64, pictureId int64, transactionId int64) error {
+	if transactionId <= 0 {
+		return errs.ErrTransactionIdInvalid
+	}
+
+	if _, err := s.GetReceiptPictureInfo(c, uid, pictureId); err != nil {
+		return err
+	}
+
+	updateModel := &models.TransactionPictureInfo{
+		TransactionId:   transactionId,
+		UpdatedUnixTime: time.Now().Unix(),
+	}
+	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+		updatedRows, err := sess.ID(pictureId).
+			Cols("transaction_id", "updated_unix_time").
+			Where("uid=? AND deleted=? AND (transaction_id=? OR transaction_id=?)", uid, false, models.TransactionPictureNewPictureTransactionId, transactionId).
+			Update(updateModel)
+		if err != nil {
+			return err
+		}
+		if updatedRows < 1 {
+			return errs.ErrTransactionPictureNotFound
+		}
+		return nil
+	})
+}
+
 // UploadPicture uploads the transaction picture for specified user
 func (s *TransactionPictureService) UploadPicture(c core.Context, pictureInfo *models.TransactionPictureInfo, pictureFile multipart.File) error {
 	if pictureInfo.Uid <= 0 {
@@ -246,7 +296,11 @@ func (s *TransactionPictureService) RemoveUnusedTransactionPicture(c core.Contex
 	}
 
 	return s.UserDB().DoTransaction(c, func(sess *xorm.Session) error {
-		deletedRows, err := sess.ID(pictureId).Cols("deleted", "deleted_unix_time").Where("uid=? AND deleted=? AND transaction_id=?", uid, false, models.TransactionPictureNewPictureTransactionId).Update(updateModel)
+		deletedRows, err := sess.ID(pictureId).Cols("deleted", "deleted_unix_time").
+			Where("uid=? AND deleted=? AND transaction_id=?", uid, false, models.TransactionPictureNewPictureTransactionId).
+			And("NOT EXISTS (SELECT 1 FROM financial_observation WHERE financial_observation.uid=? AND financial_observation.receipt_picture_id=? AND financial_observation.status IN (?, ?, ?))",
+				uid, pictureId, models.FinancialObservationStatusPending, models.FinancialObservationStatusRetrying, models.FinancialObservationStatusReview).
+			Update(updateModel)
 
 		if err != nil {
 			return err
