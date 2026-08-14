@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ezbookkeeping-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ezbookkeeping}
+      POSTGRES_USER: ${POSTGRES_USER:-ezbookkeeping}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ezbookkeeping} -d ${POSTGRES_DB:-ezbookkeeping}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  ezbookkeeping:
+    build:
+      context: .
+      args:
+        BUILD_PIPELINE: "1"
+    container_name: ezbookkeeping
+    hostname: ezbookkeeping
+    ports:
+      - "8080:8080"
+    environment:
+      - EBK_SERVER_DOMAIN=${EBK_SERVER_DOMAIN:-localhost}
+      - EBK_SERVER_ENABLE_GZIP=true
+      - EBK_DATABASE_TYPE=postgres
+      - EBK_DATABASE_HOST=postgres:5432
+      - EBK_DATABASE_SSL_MODE=disable
+      - EBK_DATABASE_NAME=${POSTGRES_DB:-ezbookkeeping}
+      - EBK_DATABASE_USER=${POSTGRES_USER:-ezbookkeeping}
+      - EBK_DATABASE_PASSWD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - EBK_LOG_MODE=file
+      - EBK_SECURITY_SECRET_KEY=${EBK_SECURITY_SECRET_KEY:?Set EBK_SECURITY_SECRET_KEY in .env}
+    volumes:
+      - ezbookkeeping-storage:/ezbookkeeping/storage
+      - ezbookkeeping-log:/ezbookkeeping/log
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz.json"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  ezbookkeeping-storage:
+  ezbookkeeping-log:
