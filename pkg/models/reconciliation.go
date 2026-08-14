@@ -9,6 +9,17 @@ const (
 	RECONCILIATION_SOURCE_MANUAL      = "manual"
 )
 
+// Financial observation processing statuses used by persistence and receipt retention.
+const (
+	FINANCIAL_OBSERVATION_STATUS_PENDING         = "pending"
+	FINANCIAL_OBSERVATION_STATUS_RETRYING        = "retrying"
+	FINANCIAL_OBSERVATION_STATUS_AWAITING_REVIEW = "awaiting_review"
+	FINANCIAL_OBSERVATION_STATUS_RECONCILED      = "reconciled"
+	FINANCIAL_OBSERVATION_STATUS_FAILED          = "failed"
+)
+
+const RECONCILIATION_REVIEW_STATUS_OPEN = "open"
+
 // FinancialObservation stores an immutable, sanitized source report and its mutable processing state.
 type FinancialObservation struct {
 	ObservationId           int64           `xorm:"PK UNIQUE(UQE_financial_observation_uid_observation_id)"`

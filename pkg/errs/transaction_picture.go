@@ -11,4 +11,5 @@ var (
 	ErrTransactionPictureNoExists          = NewNormalError(NormalSubcategoryPicture, 4, http.StatusNotFound, "transaction picture not exists")
 	ErrTransactionPictureExtensionInvalid  = NewNormalError(NormalSubcategoryPicture, 5, http.StatusNotFound, "transaction picture file extension invalid")
 	ErrExceedMaxTransactionPictureFileSize = NewNormalError(NormalSubcategoryPicture, 6, http.StatusBadRequest, "exceed the maximum size of transaction picture file")
+	ErrTransactionPictureInUse             = NewNormalError(NormalSubcategoryPicture, 7, http.StatusConflict, "transaction picture is referenced by reconciliation")
 )
