@@ -359,6 +359,17 @@ func (c *DataTableTransactionDataImporter) ParseImportedData(ctx core.Context, u
 		}
 
 		description := ""
+		merchant := ""
+
+		if transactionDbType == models.TRANSACTION_DB_TYPE_EXPENSE {
+			if dataTable.HasColumn(datatable.TRANSACTION_DATA_TABLE_MERCHANT) {
+				merchant = dataRow.GetData(datatable.TRANSACTION_DATA_TABLE_MERCHANT)
+			}
+
+			if merchant == "" && dataTable.HasColumn(datatable.TRANSACTION_DATA_TABLE_PAYEE) {
+				merchant = dataRow.GetData(datatable.TRANSACTION_DATA_TABLE_PAYEE)
+			}
+		}
 
 		if dataTable.HasColumn(datatable.TRANSACTION_DATA_TABLE_DESCRIPTION) {
 			description = dataRow.GetData(datatable.TRANSACTION_DATA_TABLE_DESCRIPTION)
@@ -380,6 +391,7 @@ func (c *DataTableTransactionDataImporter) ParseImportedData(ctx core.Context, u
 				HideAmount:           false,
 				RelatedAccountId:     relatedAccountId,
 				RelatedAccountAmount: relatedAccountAmount,
+				Merchant:             merchant,
 				Comment:              description,
 				GeoLongitude:         geoLongitude,
 				GeoLatitude:          geoLatitude,

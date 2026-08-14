@@ -1164,6 +1164,10 @@ func (s *TransactionService) ModifyTransaction(c core.Context, transaction *mode
 			updateCols = append(updateCols, "hide_amount")
 		}
 
+		if transaction.Merchant != oldTransaction.Merchant {
+			updateCols = append(updateCols, "merchant")
+		}
+
 		if transaction.Comment != oldTransaction.Comment {
 			updateCols = append(updateCols, "comment")
 		}
